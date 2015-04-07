@@ -1,6 +1,6 @@
 {
   "name": "gulp-l10n-toolkit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Parse and collect localizable strings from html.",
   "main": "index.js",
   "scripts": {
@@ -18,12 +18,12 @@
     "translate",
     "internationalize"
   ],
-  "author": "Jason Dreyzehner <jason@dreyzehner.com>",
+  "author": "Jason Dreyzehner <jason@dreyzehner.com> & berstend",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/bitjson/gulp-l10n/issues"
+    "url": "https://github.com/berstend/gulp-l10n-toolkit/issues"
   },
-  "homepage": "https://github.com/bitjson/gulp-l10n",
+  "homepage": "https://github.com/berstend/gulp-l10n-toolkit",
   "dependencies": {
     "glob": "^4.4.1",
     "gulp-util": "^3.0.4",
