@@ -2,6 +2,7 @@
 
 var through = require('through2');
 var gutil = require('gulp-util');
+var _ = require('lodash');
 
 var PLUGIN_NAME = 'gulp-l10n';
 
@@ -22,6 +23,10 @@ gulpL10n.extractLocale = function(opt) {
   options.algorithm = opt.hashAlgorithm || 'md5';
   options.hashLength = opt.hashLength || 8;
   options.nativeLocale = opt.nativeLocale || 'en';
+  options.basePath = opt.basePath || '';
+  options.nested = opt.nested || false;
+
+  var DEBUG = opt.debug || false;
 
   var locale = {};
 
@@ -36,45 +41,86 @@ gulpL10n.extractLocale = function(opt) {
      return;
    }
    if (file.isBuffer()) {
-     parser.write(file.contents);
+     parseFile(file);
    }
     cb();
   }
 
-  var parser = new htmlparser.Parser(new htmlparser.DomHandler(function(error, dom){
-    if(error) {
-      throw new gutil.PluginError(PLUGIN_NAME, error);
-    }
-    else {
-      var strings = [];
 
-      //extract strings from options.elements and elements with options.directives
-      var elements = filterElementsByTagNames(dom, options.elements);
-      elements = elements.concat(filterElementsByAttributes(dom, options.directives));
-      for(var i = 0; i < elements.length; i++) {
-        strings.push(htmlparser.DomUtils.getInnerHTML(elements[i]));
+  function parseFile(file) {
+
+   var filePath = file.path.replace(options.basePath,'');
+   var parser = new htmlparser.Parser(new htmlparser.DomHandler(function(error, dom){
+      if(error) {
+        throw new gutil.PluginError(PLUGIN_NAME, error);
       }
+      else {
+        var strings = [];
 
-      //extract strings from options.attributes
-      strings = strings.concat(extractStringsFromAttributes(dom, options.attributes));
+        //extract strings from options.elements and elements with options.directives
+        var elements = filterElementsByTagNames(dom, options.elements);
+        elements = elements.concat(filterElementsByAttributes(dom, options.directives));
+        for(var i = 0; i < elements.length; i++) {
+          strings.push(htmlparser.DomUtils.getInnerHTML(elements[i]));
+        }
 
-      // strings are ordered alphabetically for human readability & better source control
-      strings.sort();
+        //extract strings from options.attributes
+        strings = strings.concat(extractStringsFromAttributes(dom, options.attributes));
 
-      for(var j = 0; j < strings.length; j++){
-        locale[hash(strings[j], options.algorithm, options.hashLength)] = strings[j];
+        // strings are ordered alphabetically for human readability & better source control
+        strings.sort();
+
+
+        for(var j = 0; j < strings.length; j++){
+          var obj = {};
+          var text, identifier, slug, hashsum, description, tag;
+
+          text = strings[j];
+          // Skip empty strings
+          if (text.trim() == "") {continue;}
+
+          hashsum = hash(strings[j], options.algorithm, options.hashLength);
+
+          if (!options.nested) {
+            locale[hashsum] = text;
+            if (DEBUG) {console.log('Simple JSON', locale[hashsum])}
+            continue;
+          }
+
+          tag = filePath.replace('/index.html','').replace('.html','').replace(/\//g, '.');
+          obj = {
+            message: text,
+            _hash: hashsum,
+          }
+          slug = _.kebabCase(_.deburr(text)).substr(0,100);
+          identifier = slug + ' (' + hashsum + ')';
+
+
+          if(!locale[identifier] || !locale[identifier]._tags) { obj._tags = [tag] }
+          else {
+            obj._tags = _.union(locale[identifier]._tags, [tag]);
+          }
+
+          locale[identifier] = obj;
+
+        }
       }
-    }
-  }, {
-    normalizeWhitespace: true
-  }));
+    }, {
+      normalizeWhitespace: true
+    }));
+
+
+    parser.write(file.contents);
+    parser.done();
+  }
+
 
   function createLocaleFile(cb){
-    parser.done();
     if (Object.keys(locale).length === 0) {
       cb();
       return;
     }
+
     pipeSegment.push(new gutil.File({
       cwd: '',
       base: '',
@@ -128,8 +174,14 @@ gulpL10n.extractLocale = function(opt) {
   return pipeSegment;
 };
 
+
+
+
 gulpL10n.localize = function(opt, cb) {
   opt = opt || {};
+
+  var DEBUG = opt.debug || false;
+
 
   //path of nativeLocale file
   if(!opt.hasOwnProperty('nativeLocale')){
@@ -181,16 +233,32 @@ gulpL10n.localize = function(opt, cb) {
 
        var contents = String(localizedFile.contents);
 
-       for (var hash in nativeLocale){
+       for (var entry in nativeLocale){
+         var nativeHash, nativeMessage;
+         if (typeof nativeLocale[entry] == 'string' || nativeLocale[entry] instanceof String) {
+          // Simple JSON file
+          nativeHash = entry;
+          nativeMessage = nativeLocale[nativeHash];
+          if (DEBUG) {console.log('Simple JSON', {entry: entry, nativeHash: nativeHash, nativeMessage: nativeMessage})}
+         } else {
+          // Nested, chrome-like locale JSON
+          nativeHash = nativeLocale[entry]._hash;
+          nativeMessage = nativeLocale[entry].message;
+          if (DEBUG) {console.log('Nested JSON', {nativeHash: nativeHash, nativeMessage: nativeMessage})}
+         }
+         // Skip entries without translations.
+         if (locales[localeIdentifier][nativeHash] === undefined) {continue;}
+         // Quick sanity check
+         if (!nativeMessage) {console.log("Couldn't extract nativeMessage"); continue;}
          for (var i = 0; i < potentialDelimiters.length; i++){
            var chunks = contents.split(
              potentialDelimiters[i][0] +
-             nativeLocale[hash] +
+             nativeMessage +
              potentialDelimiters[i][1]);
 
            contents = chunks.join(
              potentialDelimiters[i][0] +
-             locales[localeIdentifier][hash] +
+             locales[localeIdentifier][nativeHash] +
              potentialDelimiters[i][1]);
          }
        }

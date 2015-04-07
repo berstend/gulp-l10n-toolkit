@@ -1,12 +1,64 @@
-[![npm version](https://badge.fury.io/js/gulp-l10n.svg)](http://badge.fury.io/js/gulp-l10n)
-[![Build Status](https://travis-ci.org/bitjson/gulp-l10n.svg)](https://travis-ci.org/bitjson/gulp-l10n)
-[![Coverage Status](https://coveralls.io/repos/bitjson/gulp-l10n/badge.svg?branch=master)](https://coveralls.io/r/bitjson/gulp-l10n?branch=master)
-[![Dependency Status](https://david-dm.org/bitjson/gulp-l10n.svg)](https://david-dm.org/bitjson/gulp-l10n)
-[![Stories in Ready](https://badge.waffle.io/bitjson/gulp-l10n.png?label=ready&title=Ready)](https://waffle.io/bitjson/gulp-l10n)
-
-# gulp-l10n
+# gulp-l10n-toolkit
 
 A plugin for localizing html.
+
+Very heavily based on: https://github.com/bitjson/gulp-l10n/
+
+Adds support for `nested: true` which generates a nested JSON locale similar to chrome locales.
+
+
+## Nested JSON
+
+`nested: false` (Default)
+
+```json
+{
+  "8f7f4c1c": "About",
+  "95a55af6": "Team page",
+  "58270ff3": "Citizen Kane"
+}
+```
+
+
+`nested: true`
+
+```json
+{
+  "about (8f7f4c1c)": {
+    "message": "About",
+    "_hash": "8f7f4c1c",
+    "_tags": [
+      "index",
+      "about-us",
+      "public.404",
+      "public.error",
+      "team"
+    ]
+  },
+  "team-page (95a55af6)": {
+    "message": "Team page",
+    "_hash": "95a55af6",
+    "_tags": [
+      "index",
+      "about-us",
+      "public.404",
+      "public.error",
+      "team"
+    ]
+  },
+  "citizen-kane (58270ff3)": {
+    "message": "Citizen Kane",
+    "_hash": "58270ff3",
+    "_tags": [
+      "index"
+    ]
+  }
+}
+```
+
+- Slugifies the key for better readibility.
+- Adds the sites where the string occurs to an `_tags` array.
+
 
 ## extractLocale()
 
@@ -14,7 +66,7 @@ Parse and extract localizable strings from html. Passes on a single `LOCALE.json
 
 ```js
 var gulp = require('gulp');
-var l10n = require('gulp-l10n');
+var l10n = require('gulp-l10n-toolkit');
 
 gulp.task('extract-locale', function () {
   return gulp.src('src/**/*.html')
@@ -45,7 +97,10 @@ gulp.task('extract-locale', function () {
     hashLength: 8,
 
     // by default, the locale is written to the stream as `en.json`
-    nativeLocale: 'en'
+    nativeLocale: 'en',
+
+    // NEW: Create Chrome-like nested JSON with metadata and tags
+    nested: false
   }))
 ```
 
@@ -55,7 +110,7 @@ Localizes files for each locale in `locales`. Localized files are nested in a su
 
 ```js
 var gulp = require('gulp');
-var l10n = require('gulp-l10n');
+var l10n = require('gulp-l10n-toolkit');
 
 gulp.task('localize', function () {
   return gulp.src('src/**/*.html')
@@ -89,7 +144,7 @@ This is a utility to quickly simulate translation of the native locale to a list
 
 ```js
 var gulp = require('gulp');
-var l10n = require('gulp-l10n');
+var l10n = require('gulp-l10n-toolkit');
 
 gulp.task('simulate-translations', function () {
   return gulp.src('locales/en.json')
